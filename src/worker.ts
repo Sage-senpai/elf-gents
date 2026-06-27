@@ -14,8 +14,9 @@ async function main() {
   console.log("│  Elfgents — verification agent (CROO/CAP)    │");
   console.log("└────────────────────────────────────────────┘");
   console.log(`mode:   ${MOCK ? `MOCK (no CROO key) — sim '${config.mockService}' order` : "LIVE"}`);
-  console.log(`verify: ${config.priceUsdc} USDC / job`);
-  console.log(`recon:  ${config.reconPriceUsdc} USDC / job  (GitHub prior-art research)`);
+  console.log(`verify:   ${config.priceUsdc} USDC / job`);
+  console.log(`recon:    ${config.reconPriceUsdc} USDC / job  (GitHub prior-art research)`);
+  console.log(`validate: ${config.validatePriceUsdc} USDC / job  (deliverable schema conformance)`);
   console.log(`judge:  ${config.anthropic.key ? config.anthropic.model : "heuristic (offline)"}`);
   console.log(`github: ${config.github.token ? "token set (recon ready)" : "NO TOKEN — recon will error"}`);
   console.log(`wallet: ${config.walletKey ? "set (receipts signed)" : "none (receipts unsigned)"}`);

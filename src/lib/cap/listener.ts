@@ -39,7 +39,9 @@ export async function runListener() {
         const summary =
           service === "verify"
             ? `${r.verdict} (${Math.round(r.confidence * 100)}%)`
-            : `${r.projects?.length ?? 0} repos`;
+            : service === "recon"
+              ? `${r.projects?.length ?? 0} repos`
+              : `${r.valid ? "valid" : `${r.errorCount} error(s)`}`;
         console.log(
           `[job ${orderId}] delivered: ${summary} hash ${receipt.contentHash.slice(0, 14)}…`,
         );

@@ -13,14 +13,15 @@ service any agent can call.
 
 ---
 
-## The two services
+## The services
 
 | Service | Buyer sends | Elfgents does | Returns |
 |--------|-------------|---------------|---------|
 | **`verify`** | `{ claim, sources[] }` | Fetches each source, judges whether they support the claim | Receipt of a `VerifyResult` (verdict + confidence + citations) |
 | **`recon`** | `{ hackathon?, track?, theme?, description?, keywords[]? }` | Searches GitHub for prior art / past projects, ranks them, synthesizes an angle | Receipt of a `ReconResult` (scored repos + strategy) |
+| **`validate`** | `{ deliverable, schema }` | Checks the deliverable against a JSON Schema (deterministic, no keys) | Receipt of a `ConformanceResult` (valid + per-path errors) |
 
-Both share one provider loop, one receipt format, and one hash-chain — so a buyer can audit a run
+They share one provider loop, one receipt format, and one hash-chain — so a buyer can audit a run
 of mixed jobs as a single tamper-evident sequence. The router (`src/lib/agent/services.ts`)
 dispatches by input shape.
 
@@ -50,6 +51,19 @@ The service fails fast with a clear message if the token is missing.
 Code: `src/lib/agent/recon.ts`. There's also an **agentic mode** (`runReconAgentic`) that hands the
 GitHub dev tools to the tool-call loop in `src/lib/agent/loop.ts` and lets the model decide which
 searches to run — useful for a richer report or to demo the dev tools in a real loop.
+
+### `validate` — deliverable → conformance receipt
+The purest trust-layer service. Every CAP agent delivers a `Schema` result; `validate` is the
+dependency any of them can hire to *prove* a delivery conforms to an agreed JSON Schema before it
+settles — both sides get a signed receipt that says "this payload matched this contract".
+
+- **Deterministic, dependency-free, no keys.** Ships a focused JSON-Schema validator
+  (`src/lib/agent/validate.ts`) covering the draft-07 subset CAP deliverables use: `type` (incl.
+  `integer` and type-unions), `required`, `properties`, `enum`/`const`, `additionalProperties`,
+  `items` + `minItems`/`maxItems`, string `minLength`/`maxLength`/`pattern`, numeric
+  `minimum`/`maximum`/`exclusive*`, and `nullable`.
+- Returns `{ valid, errorCount, errors: [{ path, message }], schemaTitle }` with JSON-Pointer paths.
+- Accepts the deliverable/schema as objects *or* JSON strings (CAP delivers Schema as a string).
 
 ---
 
@@ -128,9 +142,10 @@ src/
       client.ts            CAP SDK wrapper (live) + MOCK client (verify | recon order sim)
       listener.ts          provider loop: OrderPaid → route → receipt → deliver
     agent/
-      services.ts          router: input shape → verify | recon
+      services.ts          router: input shape → verify | recon | validate
       verify.ts            the verify service (model-graded or heuristic)
       recon.ts             the recon service (GitHub gather → synthesize)
+      validate.ts          the validate service (JSON-Schema conformance, deterministic)
       devtools.ts          GitHub dev tools (search/read) — used by recon + the loop
       tools.ts             fetch_source (used by verify)
       loop.ts              generic tool-call loop (used by recon's agentic mode)
@@ -155,8 +170,8 @@ docs/
 | `CROO_API_URL` / `CROO_WS_URL` | live | CAP API + WebSocket endpoints |
 | `BASE_RPC_URL` | optional | Base JSON-RPC (defaults to `https://mainnet.base.org`) |
 | `CROO_TARGET_SERVICE_ID` | demo (live) | the service id the requester hires |
-| `SERVICE_PRICE_USDC` / `RECON_PRICE_USDC` | optional | banner pricing (real price is set in the dashboard) |
-| `MOCK_SERVICE` | optional | which service the MOCK client simulates: `verify` \| `recon` |
+| `SERVICE_PRICE_USDC` / `RECON_PRICE_USDC` / `VALIDATE_PRICE_USDC` | optional | banner pricing (real price is set in the dashboard) |
+| `MOCK_SERVICE` | optional | which service the MOCK client simulates: `verify` \| `recon` \| `validate` |
 | `GITHUB_TOKEN` | **recon** | required for the recon service's GitHub calls |
 | `AGENT_WALLET_PRIVATE_KEY` | optional | signs receipts (separate from the CAP payment AA wallet) |
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | optional | model-graded verify + model-written recon synthesis |
@@ -175,10 +190,12 @@ pnpm install
 # MOCK (zero CROO setup) — watch the full lifecycle
 pnpm worker                # simulates one paid 'verify' order
 pnpm worker:recon          # simulates one paid 'recon' order (needs GITHUB_TOKEN)
+pnpm worker:validate       # simulates one paid 'validate' order (no keys needed)
 
 # the A2A side — a second agent hiring this one
 pnpm demo                  # verify a claim
 pnpm demo:recon "verifiable agent commerce"   # hire recon (needs GITHUB_TOKEN)
+pnpm demo:validate         # hire validate (no keys needed)
 
 pnpm dev                   # the landing page at http://localhost:3000
 ```

@@ -6,6 +6,7 @@ import { config, MOCK } from "../src/lib/config";
  *   pnpm demo                       # verify a claim (default)
  *   pnpm demo "<claim>" <url...>    # verify a specific claim + sources
  *   pnpm demo --recon "<theme>"     # hire the recon service instead
+ *   pnpm demo --validate            # hire the validate service (schema conformance)
  *
  * This is the requester side of the CAP order lifecycle — what another agent's
  * tool handler does when it wants something verified, or wants prior-art recon,
@@ -21,6 +22,24 @@ import { config, MOCK } from "../src/lib/config";
 /** Build the job payload from argv. Returns the `requirements` object. */
 function buildInput(): Record<string, any> {
   const args = process.argv.slice(2);
+  if (args[0] === "--validate") {
+    // a deliverable that doesn't conform: score is a string, model is missing
+    return {
+      deliverable: { verdict: "supported", score: "0.9", citations: [] },
+      schema: {
+        title: "VerdictDeliverable",
+        type: "object",
+        required: ["verdict", "score", "model"],
+        properties: {
+          verdict: { type: "string", enum: ["supported", "refuted", "unclear"] },
+          score: { type: "number", minimum: 0, maximum: 1 },
+          model: { type: "string" },
+          citations: { type: "array", items: { type: "object" } },
+        },
+        additionalProperties: false,
+      },
+    };
+  }
   if (args[0] === "--recon") {
     const theme = args[1] ?? "verifiable agent-to-agent commerce";
     return {
@@ -52,7 +71,13 @@ async function runMock(input: Record<string, any>) {
 }
 
 async function runLive(input: Record<string, any>) {
-  const sdk = (await import("@croo-network/sdk")) as any;
+  const sdk = (await import("@croo-network/sdk").catch(() => null)) as any;
+  if (!sdk) {
+    throw new Error(
+      "Live mode (CROO_SDK_KEY is set) needs the CAP SDK. Run: pnpm add @croo-network/sdk " +
+        "(or clear CROO_SDK_KEY to use MOCK mode).",
+    );
+  }
   const { AgentClient, EventType, DeliverableType } = sdk;
   const client = new AgentClient(
     { baseURL: config.croo.apiUrl, wsURL: config.croo.wsUrl, rpcURL: config.croo.rpcUrl },

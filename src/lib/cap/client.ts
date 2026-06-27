@@ -109,7 +109,7 @@ async function makeLiveClient(): Promise<CapClient> {
 }
 
 /* ------------------------------- mock ----------------------------------- */
-const MOCK_ORDERS: Record<"verify" | "recon", IncomingOrder["input"]> = {
+const MOCK_ORDERS: Record<"verify" | "recon" | "validate", IncomingOrder["input"]> = {
   verify: {
     claim: "The Stellar network settles transactions in 3-5 seconds.",
     sources: ["https://stellar.org/learn/the-power-of-stellar"],
@@ -119,6 +119,22 @@ const MOCK_ORDERS: Record<"verify" | "recon", IncomingOrder["input"]> = {
     track: "Research & Intelligence",
     theme: "verifiable agent-to-agent commerce",
     description: "A paid agent that fact-checks claims with on-chain provenance receipts.",
+  },
+  validate: {
+    // a deliverable that's *almost* right — wrong type on score, missing a field
+    deliverable: { verdict: "supported", score: "0.9", citations: [] },
+    schema: {
+      title: "VerdictDeliverable",
+      type: "object",
+      required: ["verdict", "score", "model"],
+      properties: {
+        verdict: { type: "string", enum: ["supported", "refuted", "unclear"] },
+        score: { type: "number", minimum: 0, maximum: 1 },
+        model: { type: "string" },
+        citations: { type: "array", items: { type: "object" } },
+      },
+      additionalProperties: false,
+    },
   },
 };
 

@@ -10,8 +10,10 @@
     "start": "next start",
     "worker": "tsx src/worker.ts",
     "worker:recon": "cross-env MOCK_SERVICE=recon tsx src/worker.ts",
+    "worker:validate": "cross-env MOCK_SERVICE=validate tsx src/worker.ts",
     "demo": "tsx scripts/demo-requester.ts",
     "demo:recon": "tsx scripts/demo-requester.ts --recon",
+    "demo:validate": "tsx scripts/demo-requester.ts --validate",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -4,12 +4,14 @@
 
 A callable, paid agent for the [CROO Agent Protocol (CAP)](https://docs.croo.network). Other agents
 hire it per job, and every job comes back as a **tamper-proof, on-chain receipt** the hiring agent
-can staple to its own delivery. It lists **two services**:
+can staple to its own delivery. It lists **three services**:
 
 - **`verify`** — hand it a claim and the sources behind it; it reads them and judges whether they
   actually support the claim.
 - **`recon`** — hand it a hackathon brief; it searches GitHub for the existing and past projects
   worth knowing about, ranks them, and synthesizes the angle you can claim.
+- **`validate`** — hand it a deliverable and a JSON Schema; it proves whether the payload conforms
+  before it settles. Deterministic, no keys.
 
 Extracted from [Elf](https://github.com/Sage-senpai/Elf), a cross-functional builder workspace. Elf
 hashed and anchored every agent run so its work was provable. Elfgents takes that provenance layer and
@@ -39,8 +41,12 @@ citations).
 read their READMEs, synthesize *why-relevant / what-to-reuse* per repo plus an overall *strategy* →
 a signed `Receipt` (scored repos + angle). **Requires `GITHUB_TOKEN`.**
 
-Both receipts are content-addressed (`keccak256`), hash-chained to the previous job, and signed by
-the agent's wallet — across **both** services, so a run is one tamper-evident sequence.
+**`validate`** — `{ deliverable, schema }` → check the payload against a JSON Schema with a focused
+draft-07 validator → a signed `Receipt` (`valid`, per-path errors). Deterministic, no keys — the
+trust check any CAP agent can hire before its own delivery settles.
+
+All receipts are content-addressed (`keccak256`), hash-chained to the previous job, and signed by
+the agent's wallet — across **every** service, so a run is one tamper-evident sequence.
 
 ### Dev tools (so the agent can actually go into GitHub)
 
@@ -66,8 +72,10 @@ No CROO key needed to see the whole lifecycle:
 pnpm install
 pnpm worker          # boots the agent, simulates one paid 'verify' order end-to-end
 pnpm worker:recon    # simulates one paid 'recon' order (needs GITHUB_TOKEN)
+pnpm worker:validate # simulates one paid 'validate' order (no keys needed)
 pnpm demo            # the A2A side: a second agent "hires" verify
 pnpm demo:recon "verifiable agent commerce"   # hire recon (needs GITHUB_TOKEN)
+pnpm demo:validate   # hire validate (no keys needed)
 pnpm dev             # the landing page at http://localhost:3000
 ```
 
@@ -113,7 +121,7 @@ src/
   app/                 Next.js landing page (the agentic flow, not a workspace)
   lib/
     cap/               CROO/CAP integration — client + provider listener
-    agent/             services router · verify · recon · dev tools · tool-call loop
+    agent/             services router · verify · recon · validate · dev tools · tool-call loop
     provenance/        signed, hash-chained receipts (from Elf's audit layer)
     config.ts          env + the MOCK switch
   worker.ts            the always-on agent process  (pnpm worker)

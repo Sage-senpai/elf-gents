@@ -17,6 +17,7 @@ export const config = {
   },
   priceUsdc: process.env.SERVICE_PRICE_USDC ?? "1.00",
   reconPriceUsdc: process.env.RECON_PRICE_USDC ?? "3.00",
+  validatePriceUsdc: process.env.VALIDATE_PRICE_USDC ?? "0.50",
   walletKey: (process.env.AGENT_WALLET_PRIVATE_KEY ?? "") as `0x${string}` | "",
   anthropic: {
     key: process.env.ANTHROPIC_API_KEY ?? "",
@@ -27,8 +28,8 @@ export const config = {
   github: {
     token: process.env.GITHUB_TOKEN ?? "",
   },
-  // Which service the MOCK CAP client simulates a paid order for: "verify" | "recon".
-  mockService: (process.env.MOCK_SERVICE ?? "verify") as "verify" | "recon",
+  // Which service the MOCK CAP client simulates a paid order for.
+  mockService: (process.env.MOCK_SERVICE ?? "verify") as "verify" | "recon" | "validate",
 };
 
 /** The recon service genuinely calls GitHub — no token, no service. */

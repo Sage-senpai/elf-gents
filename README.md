@@ -2,14 +2,21 @@
 
 > The elf that checks your agent's work.
 
-A callable, paid **verification agent** for the [CROO Agent Protocol (CAP)](https://docs.croo.network).
-Another agent hands Elfgents a claim and the sources behind it. Elfgents reads the sources, judges
-whether they actually support the claim, and returns a **tamper-proof, on-chain receipt** the hiring
-agent can attach to its own delivery.
+A callable, paid agent for the [CROO Agent Protocol (CAP)](https://docs.croo.network). Other agents
+hire it per job, and every job comes back as a **tamper-proof, on-chain receipt** the hiring agent
+can staple to its own delivery. It lists **two services**:
+
+- **`verify`** — hand it a claim and the sources behind it; it reads them and judges whether they
+  actually support the claim.
+- **`recon`** — hand it a hackathon brief; it searches GitHub for the existing and past projects
+  worth knowing about, ranks them, and synthesizes the angle you can claim.
 
 Extracted from [Elf](https://github.com/Sage-senpai/Elf), a cross-functional builder workspace. Elf
 hashed and anchored every agent run so its work was provable. Elfgents takes that provenance layer and
 makes it a service any agent can call.
+
+> 📖 **Full docs:** [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) (services, lifecycle, file map) ·
+> [`docs/HACKATHON.md`](./docs/HACKATHON.md) (hackathon facts + go-live + submission checklist).
 
 ---
 
@@ -24,11 +31,23 @@ become your customers.
 
 ## What it does
 
-1. **Input** (from another agent, over CAP): `{ claim: string, sources: string[] }`
-2. **Work**: fetch each source, grade whether it supports the claim (model-graded with an API key,
-   deterministic heuristic without one).
-3. **Output** (the deliverable): a signed, content-addressed `Receipt` — verdict, confidence,
-   citations, a `keccak256` content hash, hash-chained to the previous job, signed by the agent's wallet.
+**`verify`** — `{ claim, sources[] }` → fetch each source, grade support (model-graded with an
+ANTHROPIC key, deterministic heuristic without one) → a signed `Receipt` (verdict, confidence,
+citations).
+
+**`recon`** — `{ track, theme, description }` → derive GitHub queries, search + dedupe + rank repos,
+read their READMEs, synthesize *why-relevant / what-to-reuse* per repo plus an overall *strategy* →
+a signed `Receipt` (scored repos + angle). **Requires `GITHUB_TOKEN`.**
+
+Both receipts are content-addressed (`keccak256`), hash-chained to the previous job, and signed by
+the agent's wallet — across **both** services, so a run is one tamper-evident sequence.
+
+### Dev tools (so the agent can actually go into GitHub)
+
+The recon service ships a real dev-tool set the agent loop can call —
+`github_search_repos`, `github_search_code`, `github_read_readme`, `github_get_repo`
+(`src/lib/agent/devtools.ts`). They back both the deterministic recon path and an agentic mode
+(`runReconAgentic`) where the model drives the searches itself.
 
 ## Tracks
 
@@ -41,43 +60,51 @@ Built to span more than one:
 
 ## Run it (zero setup, MOCK mode)
 
-No keys needed to see the whole lifecycle:
+No CROO key needed to see the whole lifecycle:
 
 ```bash
 pnpm install
-pnpm worker        # boots the agent, simulates one paid order end-to-end
-pnpm demo          # the A2A side: a second agent "hires" Elfgents
-pnpm dev           # the landing page at http://localhost:3000
+pnpm worker          # boots the agent, simulates one paid 'verify' order end-to-end
+pnpm worker:recon    # simulates one paid 'recon' order (needs GITHUB_TOKEN)
+pnpm demo            # the A2A side: a second agent "hires" verify
+pnpm demo:recon "verifiable agent commerce"   # hire recon (needs GITHUB_TOKEN)
+pnpm dev             # the landing page at http://localhost:3000
 ```
 
-In MOCK mode the CAP layer fires a synthetic paid order and the verifier runs its offline heuristic,
-so you can watch `verify -> receipt -> deliver` with nothing configured.
+In MOCK mode the CAP layer fires a synthetic paid order and the agent runs offline, so you can watch
+`order -> work -> receipt -> deliver` with nothing configured (recon still needs `GITHUB_TOKEN`,
+since it makes real GitHub calls).
 
 ## Go live
 
 ```bash
 cp .env.example .env.local
-# 1. Register the agent + service in the CROO dashboard, paste CROO_SDK_KEY
-# 2. pnpm add @croo-network/sdk
-# 3. Set AGENT_WALLET_PRIVATE_KEY (signs receipts) and optionally ANTHROPIC_API_KEY
-pnpm worker        # now LIVE: listens for real negotiations + paid orders
+# 1. Register the agent + both services in the CROO dashboard, paste CROO_SDK_KEY
+# 2. Fund the agent's AA wallet with USDC on Base (address shown in the dashboard)
+# 3. pnpm add @croo-network/sdk
+# 4. Set GITHUB_TOKEN (recon), and optionally AGENT_WALLET_PRIVATE_KEY (signs receipts) + ANTHROPIC_API_KEY
+pnpm worker          # now LIVE: listens for real negotiations + paid orders
 ```
 
 Service registration and pricing happen in the **dashboard**, not in code (a CAP gotcha). The SDK is
-only for the runtime: listen, accept, deliver.
+only for the runtime: listen, accept, deliver. Full steps in [`docs/HACKATHON.md`](./docs/HACKATHON.md).
 
 ## CAP SDK methods used
 
-> Listed here because the BUIDL submission asks for it.
+> Listed here because the BUIDL submission asks for it. Confirmed against the published
+> [`@croo-network/sdk`](https://github.com/CROO-Network/node-sdk) examples (Node 18+).
 
 **Provider** (`src/lib/cap/client.ts`, `listener.ts`):
-`new AgentClient(config, sdkKey)` · `client.connectWebSocket()` ·
-`stream.on(EventType.NegotiationCreated, …)` · `client.acceptNegotiation(id)` ·
-`stream.on(EventType.OrderPaid, …)` · `client.deliverOrder(id, { type: DeliverableType.Schema, content })` ·
+`new AgentClient({ baseURL, wsURL, rpcURL }, sdkKey)` · `client.connectWebSocket()` ·
+`stream.on(EventType.NegotiationCreated, …)` → `client.acceptNegotiation(id)` ·
+`stream.on(EventType.OrderPaid, …)` → `client.getOrder(id)` ·
+`client.deliverOrder(id, { deliverableType: DeliverableType.Schema, deliverableSchema })` ·
 `client.rejectOrder(id, reason)`
 
 **Requester / A2A demo** (`scripts/demo-requester.ts`):
-`client.negotiateOrder({ serviceId, input })` · `client.payOrder(id)` · `client.getDelivery(id)`
+`client.negotiateOrder({ serviceId, requirements })` ·
+`stream.on(EventType.OrderCreated, …)` → `client.payOrder(id)` ·
+`stream.on(EventType.OrderCompleted, …)` → `client.getDelivery(id)`
 
 ## Project layout
 
@@ -86,12 +113,15 @@ src/
   app/                 Next.js landing page (the agentic flow, not a workspace)
   lib/
     cap/               CROO/CAP integration — client + provider listener
-    agent/             the tool-call loop + the verify service + tools
+    agent/             services router · verify · recon · dev tools · tool-call loop
     provenance/        signed, hash-chained receipts (from Elf's audit layer)
     config.ts          env + the MOCK switch
   worker.ts            the always-on agent process  (pnpm worker)
 scripts/
-  demo-requester.ts    a second agent hiring this one  (pnpm demo)
+  demo-requester.ts    a second agent hiring this one  (pnpm demo / pnpm demo:recon)
+docs/
+  ARCHITECTURE.md      services, lifecycle, file map, env
+  HACKATHON.md         hackathon facts + go-live + submission checklist
 ```
 
 ## License

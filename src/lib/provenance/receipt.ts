@@ -1,6 +1,6 @@
 import { keccak256, toBytes } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { config } from "@/lib/config";
+import { config } from "../config";
 
 /**
  * Provenance receipts — the part lifted straight from Elf's audit layer.
@@ -24,10 +24,12 @@ export type VerifyResult = {
   model: string;
 };
 
-export type Receipt = {
+/** A receipt wraps any service's result payload `T` — verify or recon. */
+export type Receipt<T = unknown> = {
   v: 1;
+  service: string; // which service produced this ("verify" | "recon" | ...)
   job: string; // CAP order id
-  result: VerifyResult;
+  result: T;
   contentHash: `0x${string}`; // keccak256 of the canonical result
   previousHash: `0x${string}` | null; // hash-chain link
   issuedAt: string; // ISO 8601 (passed in — keeps this pure/deterministic)
@@ -35,18 +37,29 @@ export type Receipt = {
   signature: `0x${string}` | null;
 };
 
-function canonical(result: VerifyResult): string {
-  // stable key order so the same result always hashes the same way
-  return JSON.stringify({
-    claim: result.claim,
-    verdict: result.verdict,
-    confidence: result.confidence,
-    citations: result.citations.map((c) => ({ url: c.url, quote: c.quote })),
-    model: result.model,
-  });
+/**
+ * Deterministic canonical JSON: recursively sort object keys so the same
+ * logical result always hashes to the same bytes, regardless of the order a
+ * service happened to build the object in. Works for any service's payload.
+ */
+function canonical(value: unknown): string {
+  const seen = new WeakSet();
+  const norm = (v: any): any => {
+    if (v === null || typeof v !== "object") return v;
+    if (seen.has(v)) return null;
+    seen.add(v);
+    if (Array.isArray(v)) return v.map(norm);
+    return Object.keys(v)
+      .sort()
+      .reduce((acc, k) => {
+        acc[k] = norm(v[k]);
+        return acc;
+      }, {} as Record<string, any>);
+  };
+  return JSON.stringify(norm(value));
 }
 
-export function hashResult(result: VerifyResult): `0x${string}` {
+export function hashResult(result: unknown): `0x${string}` {
   return keccak256(toBytes(canonical(result)));
 }
 
@@ -54,12 +67,13 @@ export function hashResult(result: VerifyResult): `0x${string}` {
  * Build (and optionally sign) a receipt. `issuedAt` is injected by the caller
  * so this function stays deterministic and testable.
  */
-export async function makeReceipt(input: {
+export async function makeReceipt<T>(input: {
+  service: string;
   orderId: string;
-  result: VerifyResult;
+  result: T;
   previousHash: `0x${string}` | null;
   issuedAt: string;
-}): Promise<Receipt> {
+}): Promise<Receipt<T>> {
   const contentHash = hashResult(input.result);
 
   let signer: `0x${string}` | null = null;
@@ -68,12 +82,13 @@ export async function makeReceipt(input: {
   if (config.walletKey) {
     const account = privateKeyToAccount(config.walletKey);
     signer = account.address;
-    // sign the content hash so anyone can verify the verifier really issued it
+    // sign the content hash so anyone can verify the agent really issued it
     signature = await account.signMessage({ message: { raw: contentHash } });
   }
 
   return {
     v: 1,
+    service: input.service,
     job: input.orderId,
     result: input.result,
     contentHash,

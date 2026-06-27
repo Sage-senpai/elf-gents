@@ -1,6 +1,6 @@
-import { config } from "@/lib/config";
-import { fetchUrl } from "@/lib/agent/tools";
-import type { VerifyResult } from "@/lib/provenance/receipt";
+import { config } from "../config";
+import { fetchUrl } from "./tools";
+import type { VerifyResult } from "../provenance/receipt";
 
 /**
  * The service Elfgents sells: take a claim plus the sources the caller gives

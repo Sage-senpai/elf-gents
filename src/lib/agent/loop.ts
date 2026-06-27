@@ -1,5 +1,5 @@
-import { config } from "@/lib/config";
-import type { Tool } from "@/lib/agent/tools";
+import { config } from "../config";
+import type { Tool } from "./tools";
 
 /**
  * The agentic loop — the engine, ported from Elf's Cowork tool-call loop.

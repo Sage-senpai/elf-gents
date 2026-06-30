@@ -12,12 +12,13 @@ import { config, MOCK } from "../config";
  *   stream.on(EventType.NegotiationCreated, e => client.acceptNegotiation(e.negotiation_id))
  *   stream.on(EventType.OrderPaid,          e => client.deliverOrder(e.order_id, {...}))
  *   client.deliverOrder(orderId, { deliverableType: DeliverableType.Schema, deliverableSchema })
- *   client.getOrder(orderId)    // to read the requirements the buyer sent
+ *   client.getOrder(orderId) -> order.negotiationId -> client.getNegotiation(id)
  *   client.rejectOrder(orderId, reason)
  *
- * The buyer sends the job as `requirements` (a JSON string) on negotiateOrder;
- * the provider reads it back off the order. We tolerate a couple of field names
- * because the exact Order shape isn't published — see parseRequirements().
+ * The buyer sends the job as `requirements` (a JSON string) on negotiateOrder.
+ * Per the SDK types `requirements` lives on the *Negotiation*, not the Order —
+ * so on OrderPaid we load the order, follow its negotiationId, and read
+ * `negotiation.requirements`. parseRequirements() tolerates a few shapes.
  *
  * No SDK / no key -> a MOCK that fires one synthetic paid order (verify or
  * recon, per MOCK_SERVICE) so the whole lifecycle runs with zero CAP setup.
@@ -77,16 +78,18 @@ async function makeLiveClient(): Promise<CapClient> {
         }
       });
 
-      // Buyer paid -> USDC escrowed -> read requirements and do the work.
+      // Buyer paid -> USDC escrowed. The job the buyer sent lives in the
+      // NEGOTIATION's `requirements` (a JSON string) — NOT on the event or the
+      // order. Resolve it: order -> negotiationId -> negotiation.requirements.
       stream.on(EventType.OrderPaid, async (e: any) => {
-        let input = parseRequirements(e);
-        if (Object.keys(input).length === 0) {
-          // requirements aren't on the event; fetch the order to read them.
-          try {
-            input = parseRequirements(await client.getOrder(e.order_id));
-          } catch {
-            /* fall through with {} -> the router will reject */
-          }
+        let input: Record<string, any> = {};
+        try {
+          const order = await client.getOrder(e.order_id);
+          const neg = await client.getNegotiation(order.negotiationId);
+          input = parseRequirements(neg); // neg.requirements -> parsed object
+        } catch (err) {
+          console.error("[cap] could not resolve order requirements:", err);
+          // input stays {} -> the router rejects -> buyer is refunded
         }
         await handlers.onOrderPaid({ orderId: e.order_id, input });
       });

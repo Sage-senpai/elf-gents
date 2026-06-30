@@ -12,16 +12,17 @@ export const config = {
     apiUrl: process.env.CROO_API_URL ?? "https://api.croo.network",
     wsUrl: process.env.CROO_WS_URL ?? "wss://api.croo.network/ws",
     rpcUrl: process.env.BASE_RPC_URL ?? "https://mainnet.base.org",
-    sdkKey: process.env.CROO_SDK_KEY ?? "",
+    // Dashboard exports CROO_API_KEY; accept the older CROO_SDK_KEY too.
+    sdkKey: process.env.CROO_API_KEY ?? process.env.CROO_SDK_KEY ?? "",
     targetServiceId: process.env.CROO_TARGET_SERVICE_ID ?? "",
   },
-  priceUsdc: process.env.SERVICE_PRICE_USDC ?? "1.00",
-  reconPriceUsdc: process.env.RECON_PRICE_USDC ?? "3.00",
-  validatePriceUsdc: process.env.VALIDATE_PRICE_USDC ?? "0.50",
+  priceUsdc: process.env.SERVICE_PRICE_USDC ?? "0.10",
+  reconPriceUsdc: process.env.RECON_PRICE_USDC ?? "0.25",
+  validatePriceUsdc: process.env.VALIDATE_PRICE_USDC ?? "0.02",
   walletKey: (process.env.AGENT_WALLET_PRIVATE_KEY ?? "") as `0x${string}` | "",
   anthropic: {
     key: process.env.ANTHROPIC_API_KEY ?? "",
-    model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
+    model: process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5",
   },
   // Required by the `recon` service (GitHub prior-art research). Free to mint:
   // github.com/settings/tokens — a classic token with `public_repo` scope is enough.

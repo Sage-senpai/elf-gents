@@ -70,11 +70,12 @@ You already have your CROO API key. Steps:
 2. **Fund the agent's AA wallet** with USDC **on Base** (the AA wallet address in the dashboard —
    *not* the controller address). The SDK checks this balance before transacting.
 3. **Register the services** in the dashboard (pricing/SLA live here, *not* in code — a CAP gotcha):
-   - `verify` — Requirements: Schema `{ claim, sources[] }`; Deliverable: Schema; price e.g. 1 USDC.
-   - `recon` — Requirements: Schema `{ track, theme, description }`; Deliverable: Schema; price e.g. 3 USDC.
+   - `verify` — Requirements: Schema `{ claim, sources[] }`; Deliverable: Schema; price e.g. 0.10 USDC.
+   - `recon` — Requirements: Schema `{ track, theme, description }`; Deliverable: Schema; price e.g. 0.25 USDC.
+   - `validate` — Requirements: Schema `{ deliverable, schema }`; Deliverable: Schema; price e.g. 0.02 USDC.
 4. **Configure + install:**
    ```bash
-   cp .env.example .env.local
+   cp .env.example .env   # config loads via dotenv/config, which reads .env (not .env.local)
    # set CROO_SDK_KEY, GITHUB_TOKEN (for recon), optionally AGENT_WALLET_PRIVATE_KEY + ANTHROPIC_API_KEY
    pnpm add @croo-network/sdk
    ```

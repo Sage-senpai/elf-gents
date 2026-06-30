@@ -103,7 +103,33 @@ async function runLive(input: Record<string, any>) {
       delivery.deliverableType === DeliverableType.Schema
         ? delivery.deliverableSchema
         : delivery.deliverableText;
-    console.log("[demo] Receipt:\n", body);
+
+    // The on-chain proof — capture these for the demo video / BUIDL.
+    const order = await client.getOrder(e.order_id).catch(() => null);
+    if (order) {
+      const tx = (h?: string) => (h ? `https://basescan.org/tx/${h}` : "(none)");
+      console.log("\n[demo] ── settled on Base ───────────────────────────────");
+      console.log(`  status:   ${order.status}   price: ${order.price} ${order.paymentToken}`);
+      console.log(`  create:   ${tx(order.createTxHash)}`);
+      console.log(`  pay:      ${tx(order.payTxHash)}`);
+      console.log(`  deliver:  ${tx(order.deliverTxHash)}`);
+      console.log(`  clear:    ${tx(order.clearTxHash)}`);
+    }
+
+    let receipt: any = null;
+    try {
+      receipt = JSON.parse(body);
+    } catch {
+      /* deliverable wasn't our JSON receipt */
+    }
+    if (receipt?.contentHash) {
+      console.log("\n[demo] ── receipt ──────────────────────────────────────");
+      console.log(`  service:     ${receipt.service}`);
+      console.log(`  contentHash: ${receipt.contentHash}`);
+      console.log(`  signer:      ${receipt.signer ?? "(unsigned)"}`);
+      console.log(`  signature:   ${receipt.signature ? receipt.signature.slice(0, 22) + "…" : "(none)"}`);
+    }
+    console.log("\n[demo] full deliverable:\n", body);
     stream.close();
     process.exit(0);
   });

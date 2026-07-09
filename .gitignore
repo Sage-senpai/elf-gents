@@ -2,6 +2,9 @@
 /node_modules
 /.pnp
 .pnp.js
+# this project uses pnpm — ignore stray npm/yarn lockfiles
+package-lock.json
+yarn.lock
 
 # next
 /.next/
@@ -27,3 +30,7 @@ yarn-error.log*
 
 # receipts written during local runs
 /.receipts
+
+# private notes / registration answers — never commit (may hold key hints)
+*.local.md
+/_private/

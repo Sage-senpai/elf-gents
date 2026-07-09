@@ -4,6 +4,8 @@
 
 :root {
   --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-out-cubic: cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 html {
@@ -11,24 +13,42 @@ html {
 }
 
 body {
-  background: #0a0f0d;
-  color: #e8efe9;
+  background: #f1efe8; /* Elf warm-white */
+  color: #2c2c2a; /* Elf ink */
   -webkit-font-smoothing: antialiased;
 }
 
 @layer utilities {
-  .grid-bg {
-    background-image:
-      linear-gradient(to right, rgba(91, 227, 139, 0.06) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(91, 227, 139, 0.06) 1px, transparent 1px);
-    background-size: 44px 44px;
+  /* organic blob shape for the playful background shapes */
+  .blob {
+    border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
   }
-  .accent-text {
-    color: #5be38b;
+  .blob-2 {
+    border-radius: 63% 37% 38% 62% / 54% 38% 62% 46%;
   }
-  .card {
-    background: #111a15;
-    border: 1px solid #1e2a22;
-    border-radius: 16px;
+  .text-balance {
+    text-wrap: balance;
+  }
+  /* chunky Discord-style button shadow that "presses" on click */
+  .btn-chunk {
+    transition: transform 120ms var(--ease-out-cubic), box-shadow 120ms var(--ease-out-cubic);
+  }
+  .btn-chunk:hover {
+    transform: translateY(-2px);
+  }
+  .btn-chunk:active {
+    transform: translateY(1px);
+  }
+}
+
+/* respect users who don't want motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
